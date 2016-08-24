@@ -13,9 +13,9 @@ import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import com.google.gson.Gson;
@@ -30,11 +30,10 @@ import cn.nukkit.event.player.PlayerCommandPreprocessEvent;
 import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
-import cn.nukkit.permission.BanList;
 import cn.nukkit.plugin.PluginBase;
 
 public class Main extends PluginBase implements Listener {
-	Set<String> players = new HashSet<>();
+	Map<String, Simulation> players = new HashMap<>();
 	File fileDir;
 	Gson gson = new Gson();
 	ConsoleCommandSender ccs;
@@ -43,11 +42,12 @@ public class Main extends PluginBase implements Listener {
 	public void onEnable() {
 		getServer().getPluginManager().registerEvents(this, this);
 		ccs = new ConsoleCommandSender();
+		getDataFolder().mkdirs();
 		if ((fileDir = new File(getDataFolder(), "players.json")).exists()) {
 			Reader r = null;
 			try {
 				r = openReader(fileDir);
-				players = gson.fromJson(r, HashSet.class);
+				players = gson.fromJson(r, HashMap.class);
 			} catch (Throwable e) {
 				getServer().getLogger().alert("Failed to load the list of players. (File or directory exists)");
 				e.printStackTrace();
@@ -91,6 +91,8 @@ public class Main extends PluginBase implements Listener {
 		// TODO 自動生成されたメソッド・スタブ
 		if (!sender.isOp())
 			return false;
+		if (args.length == 0)
+			return false;
 		if (command.getName().equalsIgnoreCase("fakeop")) {
 			String resolved, mes;
 			switch (args[0]) {
@@ -98,7 +100,7 @@ public class Main extends PluginBase implements Listener {
 				case "reg":
 				case "register":
 					resolved = resolvePlayerName(args[1]);
-					players.add(resolved.toLowerCase());
+					players.put(resolved.toLowerCase(), new Simulation());
 					mes = "Added " + resolved + " in the list";
 					sender.sendMessage(mes);
 					ccs.sendMessage("[FakeOperator] " + command.getName() + ": " + mes);
@@ -115,7 +117,7 @@ public class Main extends PluginBase implements Listener {
 				case "list":
 					StringBuilder sb = new StringBuilder();
 					sb.append("There are ").append(players.size()).append(" players in the list:\n");
-					for (String s : players)
+					for (String s : players.keySet())
 						sb.append(s).append(", ");
 					sb.setLength(sb.length() - 2);
 					sender.sendMessage(sb.toString());
@@ -138,7 +140,7 @@ public class Main extends PluginBase implements Listener {
 		if (event.getPlayer().isOp())
 			return;// The player has operator permission now, so we don't spoof
 					// the permission
-		if (!players.contains(event.getPlayer().getName().toLowerCase()))
+		if (!players.containsKey(event.getPlayer().getName().toLowerCase()))
 			return;// The player isn't in the list
 		String cmd = event.getMessage();
 		if (!cmd.startsWith("/"))
@@ -221,35 +223,37 @@ public class Main extends PluginBase implements Listener {
 
 				}
 					break;
-				case "banlist":// let the command sender blank ban list
+				case "banlist":// let the command sender simulated ban list
 					needCancel = true; {
 
-					BanList list;
+					List<String> list;
 					String arg;
 					if (args.length > 0) {
 						arg = args[0].toLowerCase();
 						if ("ips".equals(arg))
-							list = sender.getServer().getIPBans();
+							list = players.get(sender.getName().toLowerCase()).ipban;
 						else if ("players".equals(arg))
-							list = sender.getServer().getNameBans();
+							list = players.get(sender.getName().toLowerCase()).ban;
 						else {
 							sender.sendMessage(
 									new TranslationContainer("commands.generic.usage", "%commands.banlist.usage"));
 							return;
 						}
 					} else {
-						list = sender.getServer().getNameBans();
+						list = players.get(sender.getName().toLowerCase()).ban;
 						arg = "players";
 					}
 
 					String message = "";
+					for (String entry : list)
+						message += entry + ", ";
 
 					if ("ips".equals(arg))
 						sender.sendMessage(
-								new TranslationContainer("commands.banlist.ips", String.valueOf(0)));
+								new TranslationContainer("commands.banlist.ips", String.valueOf(list.size())));
 					else
 						sender.sendMessage(
-								new TranslationContainer("commands.banlist.players", String.valueOf(0)));
+								new TranslationContainer("commands.banlist.players", String.valueOf(list.size())));
 
 					if (message.length() > 0)
 						message = message.substring(0, message.length() - 2);
@@ -278,5 +282,10 @@ public class Main extends PluginBase implements Listener {
 		List<String> data = new ArrayList<String>(Arrays.asList(a));
 		data.remove(0);
 		return data.toArray(new String[a.length - 1]);
+	}
+
+	public static class Simulation {
+		public List<String> ban;
+		public List<String> ipban;
 	}
 }
