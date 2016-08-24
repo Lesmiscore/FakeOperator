@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.google.gson.Gson;
@@ -146,6 +147,12 @@ public class Main extends PluginBase implements Listener {
 			return player.getName();
 	}
 
+	/**
+	 * <a href=
+	 * "https://github.com/Nukkit/Nukkit/tree/master/src/main/java/cn/nukkit/command/defaults">
+	 * https://github.com/Nukkit/Nukkit/tree/master/src/main/java/cn/nukkit/
+	 * command/defaults</a>
+	 */
 	@EventHandler
 	public void commandPreProp(PlayerCommandPreprocessEvent event) {
 		if (event.getPlayer().isOp())
@@ -177,8 +184,11 @@ public class Main extends PluginBase implements Listener {
 						player.despawnFrom(event.getPlayer());// instead of ban
 					else
 						player.setBanned(true);
+
 					sender.sendMessage(new TranslationContainer("%commands.ban.success",
 							player != null ? player.getName() : name));
+
+					players.get(sender.getName().toLowerCase()).ban.add(name.toLowerCase());
 				}
 					break;
 				case "ban-ip":// let players go away from the command sender
@@ -197,13 +207,13 @@ public class Main extends PluginBase implements Listener {
 							"^(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9])\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[1-9]|0)\\.(25[0-5]|2[0-4][0-9]|[0-1]{1}[0-9]{2}|[1-9]{1}[0-9]{1}|[0-9])$",
 							value)) {
 						this.processIPBan(value, sender, reason);
-						Command.broadcastCommandMessage(sender,
+						sender.sendMessage(
 								new TranslationContainer("commands.banip.success", value));
 					} else {
 						Player player = sender.getServer().getPlayer(value);
 						if (player != null) {
 							this.processIPBan(player.getAddress(), sender, reason);
-							Command.broadcastCommandMessage(sender,
+							sender.sendMessage(
 									new TranslationContainer("commands.banip.success.players",
 											new String[] { player.getAddress(), player.getName() }));
 						} else {
@@ -223,7 +233,7 @@ public class Main extends PluginBase implements Listener {
 											value = nbt.getString("lastIP"))) {
 								this.processIPBan(value, sender, reason);
 
-								Command.broadcastCommandMessage(sender,
+								sender.sendMessage(
 										new TranslationContainer("commands.banip.success", value));
 							} else {
 								sender.sendMessage(new TranslationContainer("commands.banip.invalid"));
@@ -231,13 +241,13 @@ public class Main extends PluginBase implements Listener {
 							}
 						}
 					}
-
+					players.get(sender.getName().toLowerCase()).ipban.add(value.toLowerCase());
 				}
 					break;
 				case "banlist":// let the command sender simulated ban list
 					needCancel = true; {
 
-					List<String> list;
+					Set<String> list;
 					String arg;
 					if (args.length > 0) {
 						arg = args[0].toLowerCase();
@@ -399,7 +409,141 @@ public class Main extends PluginBase implements Listener {
 					}
 					sender.sendMessage(new TranslationContainer("%commands.enchant.success"));
 				}
-				case "-----------------":// template
+				case "gamemode":// don't work
+					needCancel = true; {
+
+					if (args.length == 0) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.gamemode.usage"));
+						return;
+					}
+
+					int gameMode = Server.getGamemodeFromString(args[0]);
+
+					if (gameMode == -1) {
+						sender.sendMessage("Unknown game mode");
+						return;
+					}
+
+					CommandSender target = sender;
+
+					if (args.length > 1) {
+						target = sender.getServer().getPlayer(args[1]);
+						if (target == null) {
+							sender.sendMessage(
+									new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+							return;
+						}
+					} else if (!(sender instanceof Player)) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.gamemode.usage"));
+						return;
+					}
+
+					sender.sendMessage("Game mode update for " + target.getName() + " failed");
+
+				}
+				case "give":// don't work
+					needCancel = true; {
+					if (args.length < 2) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%nukkit.command.give.usage"));
+						return;
+					}
+
+					Player player = sender.getServer().getPlayer(args[0]);
+					Item item;
+
+					try {
+						item = Item.fromString(args[1]);
+					} catch (Exception e) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%nukkit.command.give.usage"));
+						return;
+					}
+
+					if (player != null) {
+						if (item.getId() == 0) {
+							sender.sendMessage(
+									new TranslationContainer(TextFormat.RED + "%commands.give.item.notFound", args[1]));
+							return;
+						}
+					} else {
+						sender.sendMessage(
+								new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+						return;
+					}
+					sender.sendMessage(new TranslationContainer(
+							"%commands.give.success",
+							new String[] {
+									item.getName() + " (" + item.getId() + ":" + item.getDamage() + ")",
+									String.valueOf(item.getCount()),
+									player.getName()
+							}));
+				}
+				case "kill":// suiciding will work, but killing other player
+							// will failure
+					needCancel = true; {
+					if (args.length >= 2) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%nukkit.command.kill.usage"));
+						return;
+					}
+					if (args.length == 1) {
+						if (!sender.hasPermission("nukkit.command.kill.other")) {
+							sender.sendMessage(
+									new TranslationContainer(TextFormat.RED + "%commands.generic.permission"));
+							return;
+						}
+						Player player = sender.getServer().getPlayer(args[0]);
+						if (player != null)
+							sender.sendMessage(
+									new TranslationContainer("commands.kill.successful", player.getName()));
+						else
+							sender.sendMessage(
+									new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+						return;
+					}
+					needCancel = false;// suicide
+				}
+				case "list":// exclude "banned" player
+					needCancel = true; {
+					String online = "";
+					int onlineCount = 0;
+					for (Player player : sender.getServer().getOnlinePlayers().values())
+						if (!players.get(sender.getName().toLowerCase()).ban.contains(player.getName().toLowerCase())
+								& player.isOnline()
+								&& (!(sender instanceof Player) || ((Player) sender).canSee(player))) {
+							online += player.getDisplayName() + ", ";
+							++onlineCount;
+						}
+
+					if (online.length() > 0)
+						online = online.substring(0, online.length() - 2);
+
+					sender.sendMessage(new TranslationContainer("commands.players.list",
+							new String[] { String.valueOf(onlineCount),
+									String.valueOf(sender.getServer().getMaxPlayers()) }));
+					sender.sendMessage(online);
+					return;
+				}
+				case "op":// don't work
+					needCancel = true; {
+					if (args.length == 0) {
+						sender.sendMessage(new TranslationContainer("commands.generic.usage", "%commands.op.usage"));
+						return;
+					}
+
+					String name = args[0];
+					IPlayer player = sender.getServer().getOfflinePlayer(name);
+
+					sender.sendMessage(new TranslationContainer("commands.op.success", player.getName()));
+					if (player instanceof Player)
+						((Player) player).sendMessage(TextFormat.GRAY + "You are now op!");
+
+					return;
+				}
+				case "aaaaaaaaaaaaaaaaa":// template
 					needCancel = true; {
 				}
 			}
@@ -426,7 +570,7 @@ public class Main extends PluginBase implements Listener {
 	}
 
 	public static class Simulation {
-		public List<String> ban;
-		public List<String> ipban;
+		public Set<String> ban;
+		public Set<String> ipban;
 	}
 }
