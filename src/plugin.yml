@@ -1,0 +1,19 @@
+name: FakeOperator
+main: com.nao20010128nao.FakeOperator.Main
+version: 1.0.0
+api: 1.0.0
+author: nao20010128nao
+website:
+commands:
+ fakeop:
+  description: registers/unregisters a player in the list
+  usage: "/fakeop <r|u|reg|unreg|register|unregister>"
+  permission: FakeOperator.command
+permissions:
+ FakeOperator:
+  default: op
+  description: "All the permissions to use the FakeOperator"
+  children:
+   FakeOperator.command:
+    default: op
+    description: "Allow the usage of the FakeOperator command"
