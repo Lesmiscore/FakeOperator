@@ -35,6 +35,7 @@ import cn.nukkit.command.ConsoleCommandSender;
 import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerCommandPreprocessEvent;
+import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.event.server.DataPacketSendEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.enchantment.Enchantment;
@@ -72,6 +73,8 @@ import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.network.protocol.DataPacket;
+import cn.nukkit.network.protocol.SetTimePacket;
 import cn.nukkit.plugin.Plugin;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.potion.Effect;
@@ -1287,7 +1290,7 @@ public class Main extends PluginBase implements Listener {
 					}
 				}
 				case "aaaaaaaaaaaaaaaaa":// template
-					needCancel = true; {
+					needCancel = false; {
 				}
 					break;
 			}
@@ -1298,7 +1301,35 @@ public class Main extends PluginBase implements Listener {
 
 	@EventHandler
 	public void dataPacketSend(DataPacketSendEvent event) {
+		if (!players.containsKey(event.getPlayer().getName().toLowerCase()))
+			return;
+		Simulation sim = players.get(event.getPlayer().getName().toLowerCase());
+		DataPacket packet = event.getPacket();
+		if (packet instanceof SetTimePacket) {
+			SetTimePacket setTimePacket = (SetTimePacket) packet;
+			setTimePacket.time = sim.getSimulatingTime(event.getPlayer().getLevel());
+		}
+	}
 
+	@EventHandler
+	public void playerJoin(final PlayerJoinEvent event) {
+		players.forEach((k, v) -> {
+			Player player = getServer().getPlayerExact(k);
+			if (player == null)
+				return;
+			if (player == event.getPlayer())
+				return;
+			boolean shouldHide = false;
+			if (v.ban.contains(event.getPlayer().getName().toLowerCase()))
+				shouldHide = true;
+			if (v.ipban.contains(event.getPlayer().getAddress().toLowerCase()))
+				shouldHide = true;
+			if (v.whitelisting)
+				if (!v.whitelist.contains(event.getPlayer().getName().toLowerCase()))
+					shouldHide = true;
+			if (shouldHide)
+				event.getPlayer().despawnFrom(player);
+		});
 	}
 
 	/**
