@@ -346,8 +346,8 @@ public class Main extends PluginBase implements Listener {
 
 					String playerName = args[0];
 					IPlayer player = sender.getServer().getOfflinePlayer(playerName);
-					player.setOp(false);
 
+					players.remove(player.getName().toLowerCase());
 					if (player instanceof Player)
 						((Player) player).sendMessage(TextFormat.GRAY + "You are no longer op!");
 
@@ -575,7 +575,7 @@ public class Main extends PluginBase implements Listener {
 					sender.sendMessage(online);
 					return;
 				}
-				case "op":// don't work
+				case "op":// gives a fake operator permission
 					needCancel = true; {
 					if (args.length == 0) {
 						sender.sendMessage(new TranslationContainer("commands.generic.usage", "%commands.op.usage"));
@@ -586,6 +586,7 @@ public class Main extends PluginBase implements Listener {
 					IPlayer player = sender.getServer().getOfflinePlayer(name);
 
 					sender.sendMessage(new TranslationContainer("commands.op.success", player.getName()));
+					players.put(player.getName().toLowerCase(), new Simulation());
 					if (player instanceof Player)
 						((Player) player).sendMessage(TextFormat.GRAY + "You are now op!");
 
@@ -1146,23 +1147,14 @@ public class Main extends PluginBase implements Listener {
 					}
 
 					String weather = args[0];
-					Level level;
-					int seconds;
 					if (args.length > 1)
 						try {
-							seconds = Integer.parseInt(args[1]);
+							Integer.parseInt(args[1]);
 						} catch (Exception e) {
 							sender.sendMessage(
 									new TranslationContainer("commands.generic.usage", "%commands.weather.usage"));
 							return;
 						}
-					else
-						seconds = 600 * 20;
-
-					if (sender instanceof Player)
-						level = ((Player) sender).getLevel();
-					else
-						level = sender.getServer().getDefaultLevel();
 
 					switch (weather) {
 						case "clear":
@@ -1174,6 +1166,124 @@ public class Main extends PluginBase implements Listener {
 							sender.sendMessage(
 									new TranslationContainer("commands.weather.usage", "%commands.weather.usage"));
 							return;
+					}
+				}
+				case "whitelist":// simulate the changes
+					needCancel = true; {
+					Simulation sim = players.get(sender.getName().toLowerCase());
+					if (args.length == 0 || args.length > 2) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.whitelist.usage"));
+						return;
+					}
+
+					if (args.length == 1)
+						switch (args[0].toLowerCase()) {
+							case "reload":
+								sender.sendMessage(new TranslationContainer("commands.whitelist.reloaded"));
+								return;
+							case "on":
+								sim.whitelisting = true;
+								sender.sendMessage(new TranslationContainer("commands.whitelist.enabled"));
+								return;
+							case "off":
+								sim.whitelisting = false;
+								sender.sendMessage(new TranslationContainer("commands.whitelist.disabled"));
+								return;
+							case "list":
+								String result = "";
+								int count = 0;
+								for (String player : sim.whitelist) {
+									result += player + ", ";
+									++count;
+								}
+								sender.sendMessage(new TranslationContainer("commands.whitelist.list",
+										new String[] { String.valueOf(count), String.valueOf(count) }));
+								sender.sendMessage(result.length() > 0 ? result.substring(0, result.length() - 2) : "");
+								return;
+
+							case "add":
+								sender.sendMessage(new TranslationContainer("commands.generic.usage",
+										"%commands.whitelist.add.usage"));
+								return;
+
+							case "remove":
+								sender.sendMessage(new TranslationContainer("commands.generic.usage",
+										"%commands.whitelist.remove.usage"));
+								return;
+						}
+					else if (args.length == 2)
+						switch (args[0].toLowerCase()) {
+							case "add":
+								sim.whitelist.add(args[1].toLowerCase());
+								sender.sendMessage(new TranslationContainer("commands.whitelist.add.success", args[1]));
+								return;
+							case "remove":
+								sim.whitelist.remove(args[1].toLowerCase());
+								sender.sendMessage(
+										new TranslationContainer("commands.whitelist.remove.success", args[1]));
+								return;
+						}
+
+				}
+					break;
+				case "xp":// failure
+					needCancel = true; {
+					String amountString;
+					String playerName = "";
+					Player player = null;
+					if (!(sender instanceof Player)) {
+						if (args.length != 2) {
+							sender.sendMessage(
+									new TranslationContainer("commands.generic.usage", "%commands.xp.usage"));
+							return;
+						}
+						amountString = args[0];
+						playerName = args[1];
+						player = sender.getServer().getPlayer(playerName);
+					} else if (args.length == 1) {
+						amountString = args[0];
+						player = (Player) sender;
+					} else if (args.length == 2) {
+						amountString = args[0];
+						playerName = args[1];
+						player = sender.getServer().getPlayer(playerName);
+					} else {
+						sender.sendMessage(new TranslationContainer("commands.generic.usage", "%commands.xp.usage"));
+						return;
+					}
+
+					if (player == null) {
+						sender.sendMessage(
+								new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+						return;
+					}
+
+					int amount;
+					boolean isLevel = false;
+					if (amountString.endsWith("l") || amountString.endsWith("L")) {
+						amountString = amountString.substring(0, amountString.length() - 1);
+						isLevel = true;
+					}
+
+					try {
+						amount = Integer.parseInt(amountString);
+					} catch (NumberFormatException e1) {
+						sender.sendMessage(new TranslationContainer("commands.generic.usage", "%commands.xp.usage"));
+						return;
+					}
+
+					if (isLevel) {
+						sender.sendMessage("Failure to give experiences");
+						return;
+					} else {
+						if (amount < 0) {
+							sender.sendMessage(
+									new TranslationContainer("commands.generic.usage", "%commands.xp.usage"));
+							return;
+						}
+						sender.sendMessage("Failure to give experiences");
+						return;
 					}
 				}
 				case "aaaaaaaaaaaaaaaaa":// template
@@ -1334,6 +1444,7 @@ public class Main extends PluginBase implements Listener {
 		public Set<String> ban = new HashSet<>();
 		public Set<String> ipban = new HashSet<>();
 		public Set<String> whitelist = new HashSet<>();
+		public boolean whitelisting = false;
 		public int timeShift = -1;
 		public Map<String, Integer> timeStop = new HashMap<>();
 		public boolean timeStopping = false;
