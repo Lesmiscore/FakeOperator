@@ -20,17 +20,24 @@ import java.util.regex.Pattern;
 
 import com.google.gson.Gson;
 
+import cn.nukkit.IPlayer;
 import cn.nukkit.Player;
+import cn.nukkit.Server;
 import cn.nukkit.command.Command;
 import cn.nukkit.command.CommandSender;
 import cn.nukkit.command.ConsoleCommandSender;
 import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerCommandPreprocessEvent;
+import cn.nukkit.item.Item;
+import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.plugin.PluginBase;
+import cn.nukkit.potion.Effect;
+import cn.nukkit.utils.ServerException;
+import cn.nukkit.utils.TextFormat;
 
 public class Main extends PluginBase implements Listener {
 	Map<String, Simulation> players = new HashMap<>();
@@ -104,6 +111,8 @@ public class Main extends PluginBase implements Listener {
 					mes = "Added " + resolved + " in the list";
 					sender.sendMessage(mes);
 					ccs.sendMessage("[FakeOperator] " + command.getName() + ": " + mes);
+					if (getServer().getPlayer(resolved) != null)
+						getServer().getPlayer(resolved).sendMessage(TextFormat.GRAY + "You are now op!");
 					return true;
 				case "u":
 				case "unreg":
@@ -113,6 +122,8 @@ public class Main extends PluginBase implements Listener {
 					mes = "Removed " + resolved + " from the list";
 					sender.sendMessage(mes);
 					ccs.sendMessage("[FakeOperator] " + command.getName() + ": " + mes);
+					if (getServer().getPlayer(resolved) != null)
+						getServer().getPlayer(resolved).sendMessage(TextFormat.GRAY + "You are no longer op!");
 					return true;
 				case "list":
 					StringBuilder sb = new StringBuilder();
@@ -260,7 +271,137 @@ public class Main extends PluginBase implements Listener {
 					sender.sendMessage(message);
 				}
 					break;
+				case "defaultgamemode":// only messages
+					needCancel = true; {
+					if (args.length == 0) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage",
+										new String[] { "%commands.defaultgamemode.usage" }));
+						return;
+					}
+					int gameMode = Server.getGamemodeFromString(args[0]);
+					if (gameMode != -1)
+						sender.sendMessage(new TranslationContainer("commands.defaultgamemode.success",
+								new String[] { Server.getGamemodeString(gameMode) }));
+					else
+						sender.sendMessage("Unknown game mode"); //
+				}
+				case "deop":// only messages
+					needCancel = true; {
+					if (args.length == 0) {
+						sender.sendMessage(new TranslationContainer("commands.generic.usage", "%commands.deop.usage"));
+						return;
+					}
 
+					String playerName = args[0];
+					IPlayer player = sender.getServer().getOfflinePlayer(playerName);
+					player.setOp(false);
+
+					if (player instanceof Player)
+						((Player) player).sendMessage(TextFormat.GRAY + "You are no longer op!");
+
+					sender.sendMessage(
+							new TranslationContainer("commands.deop.success", new String[] { player.getName() }));
+				}
+				case "difficulty":// only messages
+					needCancel = true; {
+
+					if (args.length != 1) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.difficulty.usage"));
+						return;
+					}
+
+					int difficulty = Server.getDifficultyFromString(args[0]);
+
+					if (sender.getServer().isHardcore())
+						difficulty = 3;
+					if (difficulty != -1)
+						sender.sendMessage(
+								new TranslationContainer("commands.difficulty.success", String.valueOf(difficulty)));
+					else {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.difficulty.usage"));
+						return;
+					}
+				}
+				case "effect":// don't work
+					needCancel = true; {
+					Player player = sender.getServer().getPlayer(args[0]);
+					if (player == null) {
+						sender.sendMessage(
+								new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+						return;
+					}
+					try {
+						Effect.getEffect(Integer.parseInt(args[1]));
+					} catch (NumberFormatException | ServerException a) {
+						try {
+							Effect.getEffectByName(args[1]);
+						} catch (Exception e) {
+							sender.sendMessage(new TranslationContainer("commands.effect.notFound", args[1]));
+							return;
+						}
+					}
+					if (args.length >= 3)
+						try {
+							Integer.valueOf(args[2]);
+						} catch (NumberFormatException a) {
+							sender.sendMessage(
+									new TranslationContainer("commands.generic.usage", "%commands.effect.usage"));
+							return;
+						}
+					if (args.length >= 4)
+						try {
+							Integer.valueOf(args[3]);
+						} catch (NumberFormatException a) {
+							sender.sendMessage(
+									new TranslationContainer("commands.generic.usage", "%commands.effect.usage"));
+							return;
+						}
+					sender.sendMessage(
+							new TranslationContainer("commands.effect.failure.notActive.all", player.getDisplayName()));
+				}
+				case "enchant":// don't work
+					needCancel = true; {
+					if (args.length < 2) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.enchant.usage"));
+						return;
+					}
+					Player player = sender.getServer().getPlayer(args[0]);
+					if (player == null) {
+						sender.sendMessage(
+								new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
+						return;
+					}
+					int enchantId;
+					int enchantLevel;
+					try {
+						enchantId = Integer.parseInt(args[1]);
+						enchantLevel = args.length == 3 ? Integer.parseInt(args[2]) : 1;
+					} catch (NumberFormatException e) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.enchant.usage"));
+						return;
+					}
+					Enchantment enchantment = Enchantment.getEnchantment(enchantId);
+					if (enchantment == null) {
+						sender.sendMessage(
+								new TranslationContainer("commands.enchant.notFound", String.valueOf(enchantId)));
+						return;
+					}
+					enchantment.setLevel(enchantLevel);
+					Item item = player.getInventory().getItemInHand();
+					if (item.getId() <= 0) {
+						sender.sendMessage(new TranslationContainer("commands.enchant.noItem"));
+						return;
+					}
+					sender.sendMessage(new TranslationContainer("%commands.enchant.success"));
+				}
+				case "-----------------":// template
+					needCancel = true; {
+				}
 			}
 		} finally {
 			event.setCancelled(needCancel);
