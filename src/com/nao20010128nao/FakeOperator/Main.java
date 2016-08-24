@@ -160,7 +160,10 @@ public class Main extends PluginBase implements Listener {
 					}
 					String name = args[0];
 					Player player = sender.getServer().getPlayerExact(name);
-					player.despawnFrom(event.getPlayer());// instead of ban
+					if (player != event.getPlayer())
+						player.despawnFrom(event.getPlayer());// instead of ban
+					else
+						player.setBanned(true);
 					sender.sendMessage(new TranslationContainer("%commands.ban.success",
 							player != null ? player.getName() : name));
 				}
@@ -264,7 +267,11 @@ public class Main extends PluginBase implements Listener {
 		if (sender instanceof Player)
 			for (Player player : new ArrayList<>(sender.getServer().getOnlinePlayers().values()))
 				if (player.getAddress().equals(ip))
-					player.despawnFrom((Player) sender);
+					if (player == sender) {
+						player.setBanned(true);
+						return;
+					} else
+						player.despawnFrom((Player) sender);
 	}
 
 	public String[] deleteFirst(String[] a) {
