@@ -354,8 +354,9 @@ public class Main extends PluginBase implements Listener {
 					if (player instanceof Player)
 						((Player) player).sendMessage(TextFormat.GRAY + "You are no longer op!");
 
-					sender.sendMessage(
-							new TranslationContainer("commands.deop.success", new String[] { player.getName() }));
+					if (player == sender)
+						sender.sendMessage(
+								new TranslationContainer("commands.deop.success", new String[] { player.getName() }));
 				}
 					break;
 				case "difficulty":// only messages
@@ -383,6 +384,11 @@ public class Main extends PluginBase implements Listener {
 					break;
 				case "effect":// don't work
 					needCancel = true; {
+					if (args.length < 2) {
+						sender.sendMessage(
+								new TranslationContainer("commands.generic.usage", "%commands.effect.usage"));
+						return;
+					}
 					Player player = sender.getServer().getPlayer(args[0]);
 					if (player == null) {
 						sender.sendMessage(
@@ -522,7 +528,7 @@ public class Main extends PluginBase implements Listener {
 								new TranslationContainer(TextFormat.RED + "%commands.generic.player.notFound"));
 						return;
 					}
-					sender.sendMessage(new TranslationContainer(
+					sender.sendMessage(new TranslationContainer(// change here
 							"%commands.give.success",
 							new String[] {
 									item.getName() + " (" + item.getId() + ":" + item.getDamage() + ")",
@@ -540,11 +546,6 @@ public class Main extends PluginBase implements Listener {
 						return;
 					}
 					if (args.length == 1) {
-						if (!sender.hasPermission("nukkit.command.kill.other")) {
-							sender.sendMessage(
-									new TranslationContainer(TextFormat.RED + "%commands.generic.permission"));
-							return;
-						}
 						Player player = sender.getServer().getPlayer(args[0]);
 						if (player != null)
 							sender.sendMessage(
@@ -604,6 +605,7 @@ public class Main extends PluginBase implements Listener {
 					players.get(sender.getName().toLowerCase()).ban.remove(args[0].toLowerCase());
 					sender.sendMessage(new TranslationContainer("%commands.unban.success", args[0]));
 				}
+					break;
 				case "pardon-ip":// delete from the list
 					needCancel = true; {
 					if (args.length != 1) {
@@ -944,7 +946,7 @@ public class Main extends PluginBase implements Listener {
 						@Override
 						public void onRun(int currentTick) {
 							Player player = (Player) sender;
-							player.kick("Server closed");
+							player.kick("Server closed", false);
 							player.setBanned(true);
 							sender.getServer().getNetwork().blockAddress(player.getAddress(), -1);
 						}
