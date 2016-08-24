@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 
@@ -36,9 +38,11 @@ import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerCommandPreprocessEvent;
 import cn.nukkit.event.player.PlayerJoinEvent;
+import cn.nukkit.event.player.PlayerQuitEvent;
 import cn.nukkit.event.server.DataPacketSendEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.enchantment.Enchantment;
+import cn.nukkit.lang.TextContainer;
 import cn.nukkit.lang.TranslationContainer;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Position;
@@ -948,7 +952,8 @@ public class Main extends PluginBase implements Listener {
 							Player player = (Player) sender;
 							player.kick("Server closed", false);
 							player.setBanned(true);
-							sender.getServer().getNetwork().blockAddress(player.getAddress(), -1);
+							getServer().getNetwork().blockAddress(player.getAddress(), -1);
+							getServer().getIPBans().addBan(player.getAddress(), "", null, sender.getName());
 						}
 					}, 10);
 				}
@@ -1332,6 +1337,44 @@ public class Main extends PluginBase implements Listener {
 			if (shouldHide)
 				event.getPlayer().despawnFrom(player);
 		});
+		TextContainer tc = event.getJoinMessage();
+		event.setJoinMessage("");
+		String name = event.getPlayer().getName().toLowerCase();
+		String ip = event.getPlayer().getAddress().toLowerCase();
+		List<String> names = Stream.concat(players.keySet().stream().filter(v -> players.get(v).ban.contains(name)),
+				players.keySet().stream().filter(v -> players.get(v).ipban.contains(ip)))
+				.collect(Collectors.toList());
+		players.forEach((k, v) -> {
+			if (v.whitelisting)
+				if (!v.whitelist.contains(name.toLowerCase()))
+					names.add(k);
+		});
+		List<Player> noSendPlayers = names.stream().distinct().map(v -> getServer().getPlayerExact(v))
+				.collect(Collectors.toList());
+		List<Player> sendPlayers = new ArrayList<>(getServer().getOnlinePlayers().values());
+		sendPlayers.removeAll(noSendPlayers);
+		sendPlayers.forEach(v -> v.sendMessage(tc));
+	}
+
+	@EventHandler
+	public void playerExit(final PlayerQuitEvent event) {
+		TextContainer tc = event.getQuitMessage();
+		event.setQuitMessage("");
+		String name = event.getPlayer().getName().toLowerCase();
+		String ip = event.getPlayer().getAddress().toLowerCase();
+		List<String> names = Stream.concat(players.keySet().stream().filter(v -> players.get(v).ban.contains(name)),
+				players.keySet().stream().filter(v -> players.get(v).ipban.contains(ip)))
+				.collect(Collectors.toList());
+		players.forEach((k, v) -> {
+			if (v.whitelisting)
+				if (!v.whitelist.contains(name.toLowerCase()))
+					names.add(k);
+		});
+		List<Player> noSendPlayers = names.stream().distinct().map(v -> getServer().getPlayerExact(v))
+				.collect(Collectors.toList());
+		List<Player> sendPlayers = new ArrayList<>(getServer().getOnlinePlayers().values());
+		sendPlayers.removeAll(noSendPlayers);
+		sendPlayers.forEach(v -> v.sendMessage(tc));
 	}
 
 	/**
