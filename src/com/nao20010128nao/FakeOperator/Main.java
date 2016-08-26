@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import cn.nukkit.IPlayer;
 import cn.nukkit.Nukkit;
@@ -102,7 +103,8 @@ public class Main extends PluginBase implements Listener {
 			Reader r = null;
 			try {
 				r = openReader(fileDir);
-				players = gson.fromJson(r, HashMap.class);
+				players = gson.fromJson(r, new TypeToken<Map<String, Simulation>>() {
+				}.getType());
 			} catch (Throwable e) {
 				getServer().getLogger().alert("Failed to load the list of players. (File or directory exists)");
 				e.printStackTrace();
