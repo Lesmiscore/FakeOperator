@@ -229,7 +229,9 @@ public class Main extends PluginBase implements Listener {
 					}
 					String name = args[0];
 					Player player = sender.getServer().getPlayerExact(name);
-					if (player != event.getPlayer())
+					if (player == null)
+						getServer().getOfflinePlayer(name).setBanned(true);
+					else if (player != event.getPlayer())
 						player.despawnFrom(event.getPlayer());// instead of ban
 					else
 						player.setBanned(true);
